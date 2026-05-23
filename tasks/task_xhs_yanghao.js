@@ -1,0 +1,180 @@
+let tCommon = require("app/xhs/Common");
+let DyIndex = require('app/xhs/Index.js');
+let DySearch = require('app/xhs/Search.js');
+let Work = require('app/xhs/Work.js');
+let storage = require("common/storage");
+let machine = require("common/machine");
+let baiduWenxin = require("service/baiduWenxin");
+let statistics = require("common/statistics");
+
+let task = {
+    contents: [],
+    count: storage.get('task_xhs_yanghao_count', 'int'),
+    zanRate: storage.get('task_xhs_yanghao_zan_rate', 'int'),
+    commentRate: storage.get('task_xhs_yanghao_comment_rate', 'int'),
+    collectRate: storage.get('task_xhs_yanghao_collect_rate', 'int'),
+    run(keyword) {
+        return this.testTask(keyword);
+    },
+
+    log() {
+        let d = new Date();
+        let file = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+        let allFile = "log/log-task-xhs-yanghao-" + file + ".txt";
+        Log.setFile(allFile);
+    },
+
+    //type 0 评论，1私信
+    getMsg(type, title, age, gender) {
+        gender = ['女', '男', '未知'][gender];
+        if (storage.getMachineType() === 1) {
+            if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
+                return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
+            }
+            return machine.getMsg(type) || false;//永远不会结束
+        }
+    },
+
+    testTask(keyword) {
+        //首先进入点赞页面
+        DyIndex.intoIndex();
+        tCommon.sleep(3000 + Math.random() * 2000);
+        DyIndex.intoSearchPage();
+        DySearch.intoSearchList(keyword);
+        tCommon.sleep(4000 + 2000 * Math.random());
+        let interval = storage.get('task_xhs_yanghao_interval', 'int');
+        while (true) {
+            let tags = DySearch.getList();
+            if (tags.length === 0) {
+                throw new Error('没有内容，报错');
+            } else {
+                Log.log('长度是：' + tags.length);
+            }
+
+            for (let i in tags) {
+                try {
+                    let text = tags[i].content;
+                    if (this.contents.includes(text)) {
+                        continue;
+                    }
+
+                    let md5 = Encrypt.md5(text);
+                    if (machine.get('task_xhs_yanghao_' + md5, 'bool')) {
+                        Log.log('重复视频');
+                        continue;
+                    }
+
+                    Log.log(tags[i].tag.bounds(), text);
+                    tags[i].tag.click();
+                    tCommon.sleep(3500 + 1500 * Math.random());
+
+                    let title = Work.getContent();
+                    Log.log('title', title);
+                    if (!title) {
+                        Log.log('界面更新了，需要滑动');
+                        tCommon.back();
+                        tCommon.sleep(500);
+                        break;//很可能是更新了
+                    }
+                    Log.log('title:' + title);
+                    statistics.viewVideo();
+                    statistics.viewTargetVideo();
+
+                    let sleepSec = (interval / 2 + interval / 2 * Math.random()) * 1000;
+                    Log.log('休眠' + sleepSec + 'ms');
+                    tCommon.sleep(sleepSec);//最后减去视频加载时间  和查询元素的时间
+
+                    if (this.count-- <= 0) {
+                        return true;
+                    }
+                    Log.log('剩余多少个：' + this.count);
+
+                    if (Math.random() * 100 <= task.commentRate) {
+                        Work.msg(Work.getType(), this.getMsg(0, title).msg);
+                        tCommon.sleep(2000 + 1000 * Math.random());
+                    }
+
+                    if (Math.random() * 100 <= task.zanRate) {
+                        Log.log('点赞');
+                        Work.zan();
+                        tCommon.sleep(2000 + 1000 * Math.random());
+                    }
+
+                    if (Math.random() * 100 <= task.collectRate) {
+                        Log.log('收藏');
+                        Work.collect();
+                        tCommon.sleep(2000 + 1000 * Math.random());
+                    }
+
+                    machine.set('task_xhs_yanghao_' + md5, true);
+                    this.contents.push(text);
+                    tCommon.back();
+                    tCommon.sleep(1000 + 500 * Math.random());
+                    if (!UiSelector().className('android.widget.TextView').text(keyword).isVisibleToUser(true).findOne()) {
+                        tCommon.back();
+                        tCommon.sleep(1000 + 500 * Math.random());
+                    }
+                } catch (e) {
+                    //判断是否在日记页面
+                    if (Work.getType() != -1) {
+                        tCommon.back();
+                        tCommon.sleep(1000);
+                    }
+                    Log.log('错误：' + e);
+                }
+            }
+
+            Log.log('开始滑动');
+            tCommon.swipeWorkOp();
+            tCommon.sleep(3000 + 2000 * Math.random());
+        }
+    },
+}
+
+let keyword = storage.get('task_xhs_yanghao_keyword');
+if (!keyword) {
+    tCommon.showToast('请设置关键词');
+    //console.hide();();
+    System.exit();
+}
+
+task.count = storage.get('task_xhs_yanghao_count', 'int');
+if (!task.count) {
+    tCommon.showToast('请设置刷视频数量');
+    //console.hide();();
+    System.exit();
+}
+
+if (!Access.isMediaProjectionEnable()) {
+    FloatDialogs.show('温馨提示', '请打开主界面侧边栏，开启“图色查找”权限');
+    System.exit();
+}
+
+System.setAccessibilityMode('fast');
+tCommon.openApp();
+//开启线程  自动关闭弹窗
+// Engines.executeScript("unit/dialogClose.js");
+
+while (true) {
+    task.log();
+    try {
+        let res = task.run(keyword);
+        if (res) {
+            tCommon.sleep(3000);
+            FloatDialogs.show('提示', '已完成');
+            break;
+        }
+
+        if (res === false) {
+            tCommon.sleep(3000);
+            FloatDialogs.show('提示', '已完成');
+            break;
+        }
+
+        tCommon.sleep(3000);
+    } catch (e) {
+        Log.log(e);
+        tCommon.closeAlert(1);
+        tCommon.backHome();
+    }
+}
