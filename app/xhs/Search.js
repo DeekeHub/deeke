@@ -1,4 +1,5 @@
 let Common = require("app/xhs/Common.js");
+let V = require("version/XhsV.js");
 
 let Search = {
     intoSearchList(keyword) {
@@ -27,7 +28,6 @@ let Search = {
 
     intoUserVideoPage(keyword) {
         this.intoSearchList(keyword);
-
         let userTag = UiSelector().className('android.widget.TextView').text('用户').isVisibleToUser(true).filter(v => {
             return v.parent().className() == 'androidx.appcompat.app.ActionBar$Tab';
         }).findOne() || UiSelector().className('android.widget.TextView').text('账号').isVisibleToUser(true).filter(v => {
@@ -37,16 +37,6 @@ let Search = {
         if (!userTag) {
             throw new Error('没有找到用户tab');
         }
-
-        let intoTag = UiSelector().className('android.widget.TextView').textContains(keyword).filter(v => {
-            return v.bounds().top > userTag.bounds().bottom;
-        }).isVisibleToUser(true).findOne();
-        if (intoTag && intoTag.parent().isClickable()) {
-            Common.click(intoTag, 0.2);
-            Common.sleep(4000 + 2000 * Math.random());
-            return true;
-        }
-
         Common.click(userTag, 0.15);
         Common.sleep(4000 + 2000 * Math.random());
 
@@ -62,6 +52,28 @@ let Search = {
         return true;
     },
 
+    //从列表进入详情
+    intoSearchVideo() {
+        let descTag = Common.id(V.Search.intoSearchVideo[0]).isVisibleToUser(true).findOnce();
+        if (descTag) {
+            Common.click(descTag);
+            return true;
+        }
+
+        let container = Common.id(V.Search.intoSearchVideo[1]).isVisibleToUser(true).findOnce();
+        if (container) {
+            Common.click(container);
+            return true;
+        }
+
+        let titleTag = Common.id(V.Search.intoSearchVideo[2]).isVisibleToUser(true).findOnce();
+        if (titleTag) {
+            Common.click(titleTag);
+            return true;
+        }
+        throw new Error('找不到视频输入');
+    },
+
     getList() {
         let tags = UiSelector().className('android.widget.FrameLayout').isVisibleToUser(true).filter(v => {
             return v && v.parent() != null && v.parent().className() == 'androidx.recyclerview.widget.RecyclerView' && v.getChildCount() >= 1;
@@ -70,8 +82,19 @@ let Search = {
         let childs = [];
         for (let i in tags) {
             let children = tags[i].children();
+            let imageTag = children.findOne(UiSelector().className('android.widget.ImageView'));
+            let top = 0;
+            if (imageTag) {
+                Log.log('imageTag', imageTag.bounds());
+                top = imageTag.bounds().top + imageTag.bounds().height();
+            }
+            //对imageTag进行判断，如果很小，可能就不是图文，直接过滤
+            if (!imageTag || imageTag.bounds().width() < Device.width() / 3) {
+                Log.log('imageTag', '过滤');
+                continue;
+            }
             let child = children.findOne(UiSelector().className('android.widget.TextView').filter(v => {
-                return v.text() != '赞助' && v.parent().className() == 'android.widget.FrameLayout';
+                return v.text() != '赞助' && v.bounds().width() > 200 && v.bounds().top > top;
             }));
             if (!child) {
                 Log.log('child为null', child);
@@ -80,7 +103,7 @@ let Search = {
 
             childs.push({
                 content: child.text(),
-                tag: tags[i],
+                tag: child,
                 isLiving: tags[i].findOne(UiSelector().className('android.widget.TextView').text('直播中')) ? true : false,
             });
         }

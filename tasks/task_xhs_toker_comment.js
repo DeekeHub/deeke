@@ -1,27 +1,18 @@
-let tCommon = require("../app/xhs/Common");
-let XhsIndex = require("../app/xhs/Index");
-let XhsSearch = require("../app/xhs/Search");
-let XhsUser = require("../app/xhs/User");
-let XhsWork = require("../app/xhs/Work");
-let XhsComment = require("../app/xhs/Comment");
-let storage = require("../common/storage");
-let machine = require("../common/machine");
-let baiduWenxin = require("../service/baiduWenxin");
-let statistics = require("../common/statistics");
+let tCommon = require("app/xhs/Common");
+let XhsIndex = require("app/xhs/Index");
+let XhsSearch = require("app/xhs/Search");
+let XhsUser = require("app/xhs/User");
+let XhsWork = require("app/xhs/Work");
+let XhsComment = require("app/xhs/Comment");
+let storage = require("common/storage");
+let machine = require("common/machine");
+let baiduWenxin = require("service/baiduWenxin");
+let statistics = require("common/statistics");
 
 let task = {
     index: -1,
-    /** @type {string[]} */
     nicknames: [],
-    /** @type {string[]} */
     ignoreTitles: [],
-    /**
-     * 
-     * @param {string} input 
-     * @param {string} kw 
-     * @param {number} sleepSecond 
-     * @returns 
-     */
     run(input, kw, sleepSecond) {
         return this.testTask(input, kw, sleepSecond);
     },
@@ -31,19 +22,9 @@ let task = {
         this.ips = machine.get('task_xhs_toker_comment_ip', 'string');
     },
 
-    //type 0 评论，1私信
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} [title] 
-     * @param {number} [age] 
-     * @param {number} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
-        let genderStr = ['女', '男', '未知'][gender];
+    getMsg(type, title, age, gender) {
         if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
+            return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
         }
         return machine.getMsg(type) || false;//永远不会结束
     },
@@ -55,12 +36,6 @@ let task = {
         Log.setFile(allFile);
     },
 
-    /**
-     * 
-     * @param {string} str 
-     * @param {string[]} kw 
-     * @returns 
-     */
     includesKw(str, kw) {
         for (let i in kw) {
             if (str.includes(kw[i])) {
@@ -70,13 +45,6 @@ let task = {
         return false;
     },
 
-    /**
-     * 
-     * @param {any} input 
-     * @param {any} kw 
-     * @param {number} sleepSecond 
-     * @returns 
-     */
     testTask(input, kw, sleepSecond) {
         //首先进入页面
         this.index++;
@@ -102,7 +70,7 @@ let task = {
         }
 
         //获取最新的前三视频
-        let i = 10;
+        let i = 3;
         while (i-- > 0) {
             Log.log('进入一个视频', 3 - i);
             let r = XhsUser.intoVideoX(this.ignoreTitles, 3);
@@ -128,7 +96,6 @@ let task = {
             let maxSwipe = commentCount;//最多滑动次数
             while (maxSwipe-- > 0) {
                 let comments = XhsWork.getCommenList();//nicknameTag列表
-                console.log('评论条数：', comments.length);
                 for (let k in comments) {
                     let nickname = comments[k].nicknameTag.text();
                     if (comments[k]['content'] == "" || !this.includesKw(comments[k]['content'], kw) || this.nicknames.includes(nickname)) {
@@ -182,11 +149,6 @@ let task = {
                     }
                     tCommon.back();
                     tCommon.sleep(1000);
-                }
-
-                if (UiSelector().className('android.view.View').isVisibleToUser(true).descContains('头像').findOne()) {
-                    tCommon.back();//有时候会出现不能返回的情况，小红薯的设计bug
-                    tCommon.sleep(500);
                 }
 
                 if (UiSelector().className('android.widget.TextView').textContains('- 到底了 -').isVisibleToUser(true).findOne()) {
@@ -256,7 +218,7 @@ if (!Access.isMediaProjectionEnable()) {
 }
 
 tCommon.openApp();
-System.setAccessibilityMode('fast');
+
 while (true) {
     task.log();
     try {

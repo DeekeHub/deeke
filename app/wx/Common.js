@@ -121,10 +121,10 @@ const Common = {
         if (i === undefined) {
             i = 1;
         }
-        while (i-- > 0) {
+        while (i--) {
             Gesture.back();
             if (!time) {
-                this.sleep(1100 + Math.random() * 200);
+                this.sleep(700 + Math.random() * 200);
                 continue;
             }
 

@@ -1,17 +1,17 @@
-let Common = require("./Common.js");
-let User = require('./User.js');
-let Index = require('./Index.js');
-let baiduWenxin = require('../../service/baiduWenxin.js');
+let Common = require("app/dy/Common.js");
+let User = require('app/dy/User.js');
+let Index = require('app/dy/Index.js');
+let baiduWenxin = require('service/baiduWenxin.js');
 
 let MessageNew = {
     scrollCount: 0,
     /**
      * 
      * @param {number} type 
-     * @param {string} [msg]
+     * @param {string} msg 
      * @returns {string}
      */
-    getMsg(type, msg) {
+    getMsg(type, msg = undefined) {
         //这里必须调用智能话术
         return baiduWenxin.getChatByMsg(type, msg);
     },
@@ -48,21 +48,18 @@ let MessageNew = {
      */
     scroll(type = false) {
         try {
-            System.setAccessibilityMode('fast');
             let res = Common.swipeMessageList(type);
-            System.setAccessibilityMode('!fast');
             Common.sleep(3000 + 2000 * Math.random());
             return res;
         } catch (e) {
             Log.log('滑动失败', e);
-            System.setAccessibilityMode('!fast');
             return false;
         }
     },
 
     /**
      * 获取最新一条记录
-     * @returns {string|null}
+     * @returns {string}
      */
     getLastMessageContent() {
         let tags = Common.id('content_layout').className('android.widget.TextView').filter(v => {
@@ -83,7 +80,7 @@ let MessageNew = {
 
     /**
      * 陌生人消息滑动
-     * @returns {boolean|null}
+     * @returns {boolean}
      */
     noUserMessageBackScroll() {
         let tag = UiSelector().className('androidx.recyclerview.widget.RecyclerView').scrollable(true).isVisibleToUser(true).findOne();
@@ -95,18 +92,18 @@ let MessageNew = {
 
     /**
      * 好友私信
-     * @param {any} config 
+     * @param {object} config 
      * @returns {boolean}
      */
     backMsg(config) {
         let msg = this.getLastMessageContent();
         if (msg === null) {
-            return false;//没有消息标签，可能不是私信
+            return;//没有消息标签，可能不是私信
         }
         Log.log('msg', msg);
         Log.log('粉丝之间的消息处理');
         if (!config.ai_back_friend_private_switch) {
-            return false;
+            return;
         }
         return User.privateMsg(this.getMsg(0, msg), true, true);
     },
@@ -154,7 +151,7 @@ let MessageNew = {
                     continue;
                 }
 
-                Common.click(backTag, 0.2);
+                Common.click(backTag);
                 System.sleep(2000 + 1000 * Math.random());
 
                 let iptTag = UiSelector().className('android.widget.EditText').filter(v => {
@@ -175,22 +172,13 @@ let MessageNew = {
                 return true;
             }
 
-            System.setAccessibilityMode('fast');
             if (!Common.swipeMessageDetailsList()) {
-                System.setAccessibilityMode('!fast');
                 return true;
             }
-            System.setAccessibilityMode('!fast');
             System.sleep(1000 + 1000 * Math.random());
         }
-        return true;
     },
 
-    /**
-     * 
-     * @param {number} num 
-     * @returns 
-     */
     focus(num) {
         while (true) {
             let tags = UiSelector().className('android.widget.Button').isVisibleToUser(true).descContains('关注').find();
@@ -227,7 +215,7 @@ let MessageNew = {
 
     /**
      * 消息操作（含陌生人消息）
-     * @param {any} config 
+     * @param {object} config 
      * @param {boolean} noScrollTop 
      * @returns {boolean}
      */
@@ -240,7 +228,7 @@ let MessageNew = {
 
         let k = 0;
         let mosr = '陌生人消息,';
-        let rrr = 10;
+        let rrr = 5;
         try {
             System.setAccessibilityMode('!fast');
             while (rrr-- > 0) {
@@ -249,7 +237,7 @@ let MessageNew = {
                     return v.bounds().width() > Device.width() - 10;
                 }).find();
 
-                Common.log('tags', tags.length);
+                Log.log('tags', tags);
                 let opCount = 0;
                 for (let i in tags) {
                     let countTag = tags[i].children().findOne(UiSelector().className('android.widget.TextView').textMatches(/^\d+$/).filter(v => {
@@ -259,29 +247,20 @@ let MessageNew = {
                     let tvTitle = Common.id('tv_title').filter(v => {
                         return v.bounds().left >= tags[i].bounds().left && v.bounds().right <= tags[i].bounds().right && v.bounds().top >= tags[i].bounds().top && v.bounds().bottom <= tags[i].bounds().bottom;
                     }).findOne();
-                    if (!tvTitle) {
+
+                    if (!tvTitle || !tvTitle.text()) {
                         Log.log('没有消息标题');
                         continue;
                     }
 
-                    //企业账号，识别不到昵称
-                    let image = Images.capture();
-                    let titleTags = Images.findTextInRegion(image, tvTitle.bounds().left, tvTitle.bounds().top, tvTitle.bounds().width(), tvTitle.bounds().height());
-                    if (titleTags.length == 0) {
-                        Log.log('没有消息标题2');
-                        continue;
-                    }
-
-                    let nickname = titleTags[0];
-
-                    if (!countTag && nickname.indexOf('陌生人消息') == -1) {
+                    if (!countTag && tvTitle.text().indexOf('陌生人消息') == -1) {
                         Log.log('没有消息');
                         continue;
                     }
 
-                    Log.log('tvTitle', nickname, countTag ? countTag.text() : 0);
+                    Log.log('tvTitle', tvTitle.text(), countTag ? countTag.text() : 0);
 
-                    if (nickname.indexOf('互动消息,') == 0) {
+                    if (tvTitle.text().indexOf('互动消息,') == 0) {
                         Log.log('互动消息处理');
                         if (!config.ai_back_comment_switch) {
                             continue;
@@ -296,7 +275,7 @@ let MessageNew = {
                         break;
                     }
 
-                    if (!noScrollTop && nickname.indexOf('陌生人消息') != -1) {
+                    if (!noScrollTop && tvTitle.text().indexOf('陌生人消息') != -1) {
                         Log.log('陌生人消息处理');
                         if (!config.ai_back_private_switch) {
                             continue;
@@ -327,12 +306,10 @@ let MessageNew = {
                     let iptTag = UiSelector().className('android.widget.EditText').isVisibleToUser(true).findOne();
                     Log.log(iptTag);
                     if (!iptTag) {
-                        iptTag = UiSelector().className('android.widget.EditText').isVisibleToUser(true).findOne();
                         Common.sleep(2000);
                         if (!iptTag) {
                             Common.back();
                             Common.sleep(1500 + 500 * Math.random());
-                            continue;
                         }
                     }
 
@@ -360,7 +337,7 @@ let MessageNew = {
 
         //滑动回去
         if (noScrollTop) {
-            return false;
+            return;
         }
 
         System.setAccessibilityMode('fast');
@@ -368,8 +345,6 @@ let MessageNew = {
             this.scroll(true);
             Common.sleep(500 + 500 * Math.random());
         }
-
-        return true;
     },
 }
 

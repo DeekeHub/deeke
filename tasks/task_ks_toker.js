@@ -1,7 +1,7 @@
-let tCommon = require("../app/ks/Common");
-let ks = require('../app/iKs');
-let machine = require("../common/machine");
-// let baiduWenxin = require("../service/baiduWenxin");
+let tCommon = require("app/ks/Common");
+let ks = require('app/iKs');
+let machine = require("common/machine");
+// let baiduWenxin = require("service/baiduWenxin");
 
 let task = {
     me: {},//我的抖音号和昵称
@@ -23,7 +23,6 @@ let task = {
 
 //开启线程  自动关闭弹窗
 // Engines.executeScript("unit/dialogClose.js");
-System.setAccessibilityMode('fast');
 task.log();
 
 while (true) {
@@ -36,7 +35,7 @@ while (true) {
             Log.log('不在任务时间，休眠一会儿');
             tCommon.backApp();
             //App.notifySuccess('通知', '即将返回到App');
-            let hours = machine.getKsTokerData(false).toker_run_hour;
+            let hours = machine.getKsTokerData(0).toker_run_hour;
             console.log(Array.isArray(hours), hours, (new Date()).getHours(), hours.includes("0"));
             while (true) {
                 tCommon.sleep(1 * 60 * 1000 / 6);

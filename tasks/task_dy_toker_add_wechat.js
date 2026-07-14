@@ -4,21 +4,11 @@ let tCommon = {
         this.sleep(8000);
     },
 
-    /**
-     * 
-     * @param {number} time 
-     */
     sleep(time) {
         time > 200 ? Log.log("js休眠时间：" + time) : null;
         System.sleep(time);
     },
 
-    /**
-     * 
-     * @param {number} [i] 
-     * @param {number} [time] 
-     * @param {number} [randTime] 
-     */
     back(i, time, randTime) {
         if (i === undefined) {
             i = 1;
@@ -39,12 +29,6 @@ let tCommon = {
         this.log('back ' + i);
     },
 
-    /**
-     * 
-     * @param {UiObject} tag 
-     * @param {number} [rate] 
-     * @returns 
-     */
     click(tag, rate) {
         if (!rate) {
             rate = 0.05;
@@ -70,10 +54,6 @@ let tCommon = {
         return true;
     },
 
-    /**
-     * 
-     * @param {string} msg 
-     */
     showToast(msg) {
         System.toast(msg);
         Log.log(msg);
@@ -85,7 +65,7 @@ let tCommon = {
     },
 };
 
-let storage = require("../common/storage");
+let storage = require("common/storage");
 
 let task = {
     backHome() {
@@ -104,12 +84,6 @@ let task = {
         }
         return true;
     },
-    /**
-     * 
-     * @param {string[]} mobiles 
-     * @param {number} second 
-     * @returns 
-     */
     run(mobiles, second) {
         for (let mobile of mobiles) {
             this.intoHome();
@@ -144,11 +118,6 @@ let task = {
         }
     },
 
-    /**
-     * 
-     * @param {string} mobile 
-     * @returns 
-     */
     runTask(mobile) {
         let addTag = UiSelector().className('android.widget.Button').desc('更多功能').findOne();
         if (!addTag) {

@@ -1,10 +1,20 @@
-let DyCommon = require('../app/dy/Common.js');
-let DyUser = require('../app/dy/User.js');
-let DyVideo = require('../app/dy/Video.js');
-let storage = require('../common/storage.js');
-let machine = require('../common/machine.js');
-let baiduWenxin = require('../service/baiduWenxin.js');
-let statistics = require('../common/statistics');
+let tCommon = require('app/dy/Common.js');
+let DyUser = require('app/dy/User.js');
+let DyVideo = require('app/dy/Video.js');
+let storage = require('common/storage.js');
+let machine = require('common/machine.js');
+let baiduWenxin = require('service/baiduWenxin.js');
+let statistics = require('common/statistics');
+let V = require("version/V.js");
+
+// let dy = require('app/iDy');
+// let config = require('config/config');
+
+/**
+ * 赞回访
+ */
+
+let videoCount = 500;
 
 let task = {
     contents: [],
@@ -19,20 +29,10 @@ let task = {
         Log.setFile(allFile);
     },
 
-    
     //type 0 评论，1私信
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} [title] 
-     * @param {number} [age] 
-     * @param {number} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
-        let genderStr = ['女', '男', '未知'][gender];
+    getMsg(type, title, age, gender) {
         if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
+            return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
         }
         return machine.getMsg(type) || false;//永远不会结束
     },
@@ -46,24 +46,28 @@ let task = {
             fansMin: machine.get('task_dy_qingsong_tuoke_min_fans', 'int') || 0, //最小粉丝数
             fansMax: machine.get('task_dy_qingsong_tuoke_max_fans', 'int') || 1000000000,//最大粉丝数
             workMin: machine.get('task_dy_qingsong_tuoke_min_work', 'int') || 1,//最小作品数
-            gender: ['0', '1', '2'],
             op: ["2"],//machine.getArray('task_dy_qingsong_tuoke_op'), // "0"，"1"，"2" 分别是 关注、私信、点赞
             privateType: machine.getArray('task_dy_qingsong_tuoke_private_type') || [],
         }
     },
 
-
     testTask() {
         //查看是不是进入了指定页面，是的话才开始运行
         let config = this.getConfig();
         Log.log("配置信息：", config);
+        tCommon.aId(V.C.text1a).descContains(V.Search.userList[2]).isVisibleToUser(true).waitFindOne();//粉丝或者关注界面
+        Log.log("bug来了");
+        let arr = [];//存储最新的20个
         let count = 0;
+        let repeatCount = 0;
+        let errorCount = 0;
         let errorContainsCount = 0;
+
         while (true) {
             try {
-                DyCommon.sleep(3000);
+                tCommon.sleep(3000);
                 System.toast('开始执行，剩余数量：' + (config.runTimes - count));
-                let contains = DyCommon.id('root_layout').isVisibleToUser(true).find();
+                let contains = tCommon.id(V.C.rootLayout).isVisibleToUser(true).find();
                 Log.log("找到的内容数量：", contains.length);
                 if (contains.length == 0) {
                     if (errorContainsCount++ >= 3) {
@@ -72,91 +76,98 @@ let task = {
                     continue;
                 }
                 errorContainsCount = 0;
+
                 for (let i in contains) {
-                    DyCommon.sleep(config.intevalSecond * 1000);
-                    Log.log(contains[i]);
+                    tCommon.sleep(config.intevalSecond * 1000);
+                    let nicknameTag = contains[i].children().findOne(tCommon.id(V.C.fansNickTag).isVisibleToUser(true));
+                    Log.log(nicknameTag);
+                    if (!nicknameTag) {
+                        System.generateWindowElements();
+                        Log.log('找不到昵称标签', contains[i]);
+                        if (errorCount++ > 3) {
+                            errorCount = 0;
+                            throw new Error("3次找不到昵称");
+                        }
+                        continue;
+                    }
+                    errorCount = 0;
 
-                    contains = DyCommon.id('root_layout').isVisibleToUser(true).find();
-                    contains[i].click();
-                    DyCommon.sleep(2000 + 1000 * Math.random());
+                    tCommon.click(nicknameTag);
+                    tCommon.sleep(2000);
                     statistics.viewUser();
-                    let nickname = contains[i].desc();
-
+                    let nickname = nicknameTag.text();
+                    count++;
+                    Log.log('操作次数：' + count + "/" + config.runTimes);
                     if (count >= config.runTimes) {
-                        FloatDialogs.toast('运行次数达到了');
+                        System.toast('运行次数达到了');
                         return true;
                     }
 
                     if (DyUser.isPrivate()) {
-                        DyCommon.back();
-                        FloatDialogs.toast('私密账号');
+                        tCommon.back();
+                        System.toast('私密账号');
                         continue;
                     }
 
                     let account = DyUser.getDouyin();
-                    if (machine.get("task_dy_friend_change_" + account, 'bool')) {
-                        DyCommon.back();
-                        FloatDialogs.toast('已经操作过了');
+                    if (machine.get("task_dy_qingsong_tuoke_" + account, 'bool')) {
+                        tCommon.back();
+                        System.toast('已经操作过了');
                         continue;
                     }
 
                     Log.log("抖音号：", account);
-                    let gender = DyUser.getGender();
-                    Log.log('性别', gender, config.gender);
-                    if (!config.gender.includes(gender)) {
-                        DyCommon.back();
-                        FloatDialogs.toast('性别不符合要求');
-                        Log.log('性别不符合要求');
+                    machine.set("task_dy_qingsong_tuoke_" + account, true);
+                    if (arr.indexOf(account) != -1) {
+                        repeatCount++;
+                        if (repeatCount >= 2) {
+                            System.toast('运行结束');
+                            return true;
+                        }
+                        tCommon.back();
                         continue;
+                    } else {
+                        repeatCount = 0;
                     }
 
-                    machine.set("task_dy_friend_change_" + account, true);
+                    arr.push(account);
+
                     let fansCount = DyUser.getFansCount();
                     Log.log("粉丝数量：", fansCount);
                     if (fansCount < config.fansMin || fansCount > config.fansMax) {
-                        DyCommon.back();
-                        FloatDialogs.toast('粉丝数不符合要求');
+                        tCommon.back();
+                        System.toast('粉丝数不符合要求');
                         continue;
                     }
 
                     let workCount = DyUser.getWorksCount();
                     Log.log("作品数量：", workCount);
                     if (workCount < config.workMin) {
-                        DyCommon.back();
-                        FloatDialogs.toast('作品数不符合要求');
+                        tCommon.back();
+                        System.toast('作品数不符合要求');
                         continue;
                     }
 
-                    let isOp = false;
                     if (config.op.includes("2") && DyVideo.intoUserVideo()) {
                         Log.log("执行进入视频");
-                        DyCommon.sleep(config.workWait * 1000);
+                        tCommon.sleep(config.workWait * 1000);
                         if (DyVideo.isZan()) {
-                            FloatDialogs.toast('已经点赞了');
+                            System.toast('已经点赞了');
                         } else {
                             DyVideo.clickZan();
-                            isOp = true;
-                            DyCommon.sleep(2000 + 1000 * Math.random());
+                            tCommon.sleep(2000 + 1000 * Math.random());
                         }
-                        DyCommon.back();
-                        DyCommon.sleep(1000 + 500 * Math.random());
-
-                        let bottom = Device.height() - 200 - Math.random() * 300;
-                        let top = bottom - 400 - Math.random() * 200;
-                        let left = Device.width() * 0.1 + Math.random() * (Device.width() * 0.8);
-                        Gesture.swipe(left, top, left, bottom, 300);
-                        DyCommon.sleep(500 + 500 * Math.random());
+                        tCommon.back();
                     }
 
                     //查看是否关注
                     if (config.op.includes("0")) {
                         Log.log("执行关注");
                         if (DyUser.isFocus()) {
-                            FloatDialogs.toast('已关注，不操作');
+                            System.toast('已关注，不操作');
                         } else {
                             DyUser.focus();
-                            isOp = true;
-                            DyCommon.sleep(1000 + Math.random() * 1000);
+                            tCommon.sleep(1000 + Math.random() * 1000);
                         }
                     }
 
@@ -165,52 +176,51 @@ let task = {
                         //如果
                         if (config.privateType.includes("0") && config.privateType.includes("1")) {
                             DyUser.privateMsg(this.getMsg(1, nickname).msg);
-                            isOp = true;
                         } else if (config.privateType.includes("0") && !DyUser.isCompany()) {
                             DyUser.privateMsg(this.getMsg(1, nickname).msg);
-                            isOp = true;
                         } else if (config.privateType.includes("1") && DyUser.isCompany()) {
                             DyUser.privateMsg(this.getMsg(1, nickname).msg);
-                            isOp = true;
                         }
                     }
 
-                    if (isOp) {
-                        count++;
-                        Log.log('操作次数：' + count + "/" + config.runTimes);
-                    }
+                    tCommon.sleep(config.homeWait * 1000);//主页停留
+                    tCommon.swipe(0, 0.5);
+                    tCommon.sleep(500);
 
-                    DyCommon.sleep(config.homeWait * 1000);//主页停留
-                    DyCommon.back();
-                    DyCommon.sleep(500);
-                    if (DyCommon.aId('text1').descContains('粉丝').isVisibleToUser(true).findOne()) {
+                    if (tCommon.id(V.C.userListHead).isVisibleToUser(true).findOne()) {
+                        //不做任何处理，已经在列表页面了
                         Log.log("在列表页面了");
                     } else {
-                        DyCommon.back();
+                        tCommon.back();//这里的back最好是判断一下，如果不在用户页，则不用返回了；或者判断是不是在列表页，是的话，也不用返回
                     }
                 }
 
-                DyCommon.sleep(1000);
+                tCommon.sleep(1000);
                 Log.log("执行滑动");
                 //判断是粉丝还是关注
-                if (!task.swipe()) {
-                    Log.log('滑动到底了');
-                    return true;
-                }
+                task.swipe();
+                System.cleanUp();
             } catch (e) {
-                if (!DyCommon.aId('text1').descContains('粉丝').isVisibleToUser(true).findOne()) {
+                if (!tCommon.id(V.C.userListHead).isVisibleToUser(true).findOne()) {
                     Log.log("找不到标签，返回了");
-                    DyCommon.back();
-                    DyCommon.sleep(2000);
+                    tCommon.back();
+                    tCommon.sleep(2000);
+                } else {
+                    Log.log('滑动一下，解决问题');
+                    task.swipe();
                 }
                 Log.log(e);
             }
         }
     },
 
-
     swipe() {
-        return DyCommon.swipeFansListOp();
+        let fansTag = tCommon.aId(V.C.text1a).textContains(V.Search.userList[2]).findOne();
+        if (fansTag && fansTag.parent().isSelected()) {
+            tCommon.swipeFansListOp();
+        } else {
+            tCommon.swipeFocusListOp();
+        }
     }
 }
 
@@ -222,12 +232,12 @@ while (true) {
     try {
         let res = task.run();
         if (res) {
-            DyCommon.sleep(3000);
+            tCommon.sleep(3000);
             FloatDialogs.show('提示', '已完成');
             break;
         }
 
-        DyCommon.sleep(3000);
+        tCommon.sleep(3000);
     } catch (e) {
         Log.log(e);
     }

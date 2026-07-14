@@ -1,195 +1,158 @@
 let Common = require('app/ks/Common.js');
 let statistics = require('common/statistics.js');
+let V = require('version/KsV.js');
+
 
 let User = {
-    /**
-     * 发送私信
-     * @param {string} msg 
-     * @returns {boolean}
-     */
     privateMsg(msg) {
-        if (this.isPrivate()) {
+        if (Common.id(V.User.isPrivate[0]).isVisibleToUser(true).findOnce() || Common.id(V.User.isPrivate[1]).isVisibleToUser(true).findOnce() || Common.id(V.User.isPrivate[2]).isVisibleToUser(true).findOnce()) {
             Log.log('私密账号');
             return false;
         }
 
-        let settingTag = Common.id('more_btn').isVisibleToUser(true).findOne();
+        let settingTag = Common.id(V.User.privateMsg[0]).descContains(V.User.privateMsg[1]).isVisibleToUser(true).findOnce() || Common.id(V.User.privateMsg[0]).descContains(V.User.privateMsg[1]).findOnce();
         if (!settingTag) {
             Log.log('找不到setting按钮');
             return false;
         }
 
-        settingTag.click();
+        Common.click(settingTag);
         Log.log("私信");
-        Common.sleep(1500 + 500 * Math.random());
+        Common.sleep(1000);
 
-        let sendTag = UiSelector().text('发私信').className('android.widget.TextView').isVisibleToUser(true).findOnce();
+        let sendTag = Common.id(V.User.privateMsg[2]).text(V.User.privateMsg[3]).isVisibleToUser(true).findOnce();
         if (!sendTag) {
             Log.log('找不到发私信按钮');
             return false;
         }
 
-        sendTag.parent().click();
+        Common.click(sendTag.parent());
         Common.sleep(2000);
 
         let res = this.privateMsgTwo(msg);
         if (res) {
-            //Common.back(1);  多返回了
+            Common.back(1);
         }
         return res;
     },
 
-    /**
-     * 发私信
-     * @param {string} msg 
-     * @returns {boolean}
-     */
     privateMsgTwo(msg) {
-        let textTag = UiSelector().isVisibleToUser(true).className('android.widget.EditText').filter(v => {
+        let textTag = Common.id(V.User.privateMsg[4]).isVisibleToUser(true).filter(v => {
             return v.isEditable();
-        }).findOne();
-
+        }).findOnce();
         if (!textTag) {
             Log.log('找不到发私信输入框');//可能是企业号，输入框被隐藏了
             Common.back();
             return false;
         }
+        Common.click(textTag);
+        Common.sleep(500);
 
-        textTag.setText(msg);
-        Common.sleep(500 + 300 * Math.random());
+        textTag = Common.id(V.User.privateMsg[4]).isVisibleToUser(true).findOnce();
+        let iText = '';
+        for (let i = 0; i < msg.length; i++) {
+            iText = msg.substring(0, i + 1);
+            textTag.setText(iText);
+            Common.sleep(200 + 300 * Math.random());
+        }
 
-        let sendTextTag = sendTag = Common.id('send_btn').isVisibleToUser(true).findOne();
+        Common.sleep(500);
+        let sendTextTag = Common.id(V.User.privateMsg[5]).isVisibleToUser(true).findOnce();
         if (!sendTextTag) {
             Log.log('发送消息失败');
             return false;
         }
 
-        let res = sendTextTag.click();
+        Common.click(sendTextTag);
+        Common.sleep(1000);
         Log.log("私信发送完成");
         statistics.privateMsg();
-        Common.sleep(1500 + Math.random() * 500);
+        Common.sleep(Math.random() * 1000);
         Log.log("成功：返回2次");
         Common.back(1);
-        return res;
+        return true;
     },
 
-    /**
-     * 获取昵称
-     * @returns {string}
-     */
     getNickname() {
         //一般用户
-        let nickname = Common.id('user_name_tv').isVisibleToUser(true).findOnce();
-        if (nickname && nickname.text()) {
-            return nickname.text();
+        let i = 3;
+        while (i--) {
+            let nickname = Common.id(V.User.getNickname[0]).isVisibleToUser(true).findOnce();
+            if (nickname && nickname.text()) {
+                return nickname.text();
+            }
+            Common.sleep(200);
         }
 
         throw new Error('找不到昵称');
     },
 
-    /**
-     * 机构 媒体等账号 公司
-     * @returns {UiObject}
-     */
+    //机构 媒体等账号 公司
     isCompany() {
-        return Common.id('header_vip_tv').findOne();
+        return this.getDouyin() == this.getNickname();
     },
 
-    /**
-     * 快手号
-     * @returns {string}
-     */
     getDouyin() {
-        let douyin = Common.id('profile_user_kwai_id').isVisibleToUser(true).findOnce();
+        let douyin = Common.id(V.User.getDouyin[0]).isVisibleToUser(true).findOnce();
         if (douyin && douyin.text()) {
-            return douyin.text().replace('快手号：', '');
+            return douyin.text().replace(V.User.getDouyin[1], '');
         }
 
-        //企业账号  profile_user_setting
-        let setting = Common.id('more_btn').isVisibleToUser(true).findOne();
-        if (!setting || !setting.click()) {
-            throw new Error('未找到用户信息');
+        //部分机型ID不一样
+        douyin = UiSelector().id(V.User.getDouyin[2]).findOnce();
+        if (douyin && douyin.text()) {
+            return douyin.text().replace(V.User.getDouyin[1], '');
         }
 
-        Common.sleep(1000);
-        douyin = Common.id('operation_user_nickname').isVisibleToUser(true).findOne();
-        Common.back();
-        if (douyin && douyin.text()) {
-            return douyin.text().replace('快手号：', '');
-        }
         return this.getNickname();
     },
 
-    /**
-     * 获取获赞数
-     * @returns {number}
-     */
     getZanCount() {
-        let zan = UiSelector().descContains('获赞数').findOne();
-        if (!zan) {
+        let zan = Common.id(V.User.getZanCount[0]).findOnce();
+        if (!zan || !zan.text()) {
             throw new Error('找不到赞');
         }
 
-        return Common.numDeal(zan.desc());
+        return Common.numDeal(zan.text());
     },
 
-    /**
-     * 关注数
-     * @returns {number}
-     */
     getFocusCount() {
-        let focus = UiSelector().descContains('关注数').findOne();
+        let focus = Common.id(V.User.getFocusCount[0]).findOnce();
         if (!focus) {
             throw new Error('找不到关注');
         }
 
-        return Common.numDeal(focus.desc());
+        return Common.numDeal(focus.text());
     },
 
-    /**
-     * 粉丝数
-     * @returns {number}
-     */
     getFansCount() {
-        let fans = UiSelector().descContains('粉丝数').findOne();
+        let fans = Common.id(V.User.getFansCount[0]).findOnce();
         if (!fans) {
             throw new Error('找不到粉丝');
         }
 
-        return Common.numDeal(fans.desc());
+        return Common.numDeal(fans.text());
     },
 
-    /**
-     * 用户介绍
-     * @returns {string}
-     */
     getIntroduce() {
-        let tag = Common.id('user_text').findOnce();
+        let tag = Common.id(V.User.getIntroduce[0]).findOnce();
         if (!tag) {
             return '';
         }
         return tag.text();
     },
 
-    /**
-     * 获取Ip
-     * @returns {string}
-     */
     getIp() {
-        let tag = Common.id('label_name').textContains('IP：').findOne();
+        let tag = Common.id(V.User.getIp[0]).isVisibleToUser(true).textContains(V.User.getIp[1]).findOnce();
         if (!tag) {
             return '';
         }
 
-        return tag.text().replace('IP：', '');
+        return tag.text().replace(V.User.getIp[1], '');
     },
 
-    /**
-     * 获取年龄
-     * @returns {number}
-     */
     getAge() {
-        let tag = Common.id('label_name').textContains('岁').findOnce();
+        let tag = Common.id(V.User.getAge[0]).textContains(V.User.getAge[1]).findOnce();
         let text = 0;
         if (!tag) {
             return '';
@@ -202,12 +165,8 @@ let User = {
         return text;
     },
 
-    /**
-     * 获取作品控件
-     * @returns {UiObject}
-     */
     getWorksTag() {
-        let tag = Common.id('tab_text').textContains('作品').findOnce();
+        let tag = Common.id(V.User.getWorksTag[0]).textContains(V.User.getWorksTag[1]).findOnce();
         console.log("tag", tag);
         if (!tag) {
             return {
@@ -220,51 +179,40 @@ let User = {
         return tag;
     },
 
-    /**
-     * 获取作品数
-     * @returns {number}
-     */
     getWorksCount() {
         let tag = this.getWorksTag();
         return Common.numDeal(tag.text());
     },
 
-    /**
-     * 获取性别
-     * @returns {number}
-     */
     getGender() {
         //1男，0女，2未知
-        let tag = Common.id('label_name').textContains('女').findOnce();
+        let tag = Common.id(V.User.getGender[0]).textContains(V.User.getGender[1]).findOnce();
         if (tag) {
             return '0';
         }
 
-        tag = tag = Common.id('label_name').textContains('男').findOnce();
+        tag = Common.id(V.User.getGender[0]).textContains(V.User.getGender[2]).findOnce();
         if (tag) {
             return '1';
         }
 
-        return '2';//未知，或者图标的方式
+        return '2';
     },
 
-    /**
-     * 是否是私密账号
-     * @returns {boolean}
-     */
+    //是否是私密账号
     isPrivate() {
         Log.log("是否是私密账号？");
-        if (UiSelector().textContains('私密').findOnce() ? true : false) {
+        if (UiSelector().textContains(V.User.isPrivate[0]).findOnce() ? true : false) {
             return true;
         }
 
         //帐号已被封禁
-        if (UiSelector().textContains('封禁').findOnce()) {
+        if (UiSelector().textContains(V.User.isPrivate[1]).findOnce()) {
             return true;
         }
 
         //注销了
-        if (UiSelector().textContains('注销').findOnce()) {
+        if (UiSelector().textContains(V.User.isPrivate[2]).findOnce()) {
             return true;
         }
 
@@ -272,79 +220,54 @@ let User = {
         return false;
     },
 
-    /**
-     * 是否已关注
-     * @returns {boolean}
-     */
     isFocus() {
-        let tag = UiSelector().filter(v => {
-            return v.className().includes('Button');
-        }).descContains('关注').findOne();
-        if (tag && (tag.desc() == '已关注' || tag.desc() == '互相关注')) {
+        let focusTag = Common.id(V.User.isFocus[0]).text(V.User.isFocus[1]).isVisibleToUser(true).findOnce();//关注按钮
+        if (!focusTag) {
             return true;
         }
         return false;
     },
 
-    /**
-     * 关注操作
-     * @returns {boolean}
-     */
     focus() {
-        let focusTag = UiSelector().filter(v => {
-            return v.className().includes('Button');
-        }).descContains('关注').findOne() || UiSelector().descContains('回关').findOne();
+        let focusTag = Common.id(V.User.isFocus[0]).text(V.User.isFocus[1]).isVisibleToUser(true).findOnce();//.text('关注')  .text('回关')
         if (focusTag) {
-            let res = focusTag.click();
+            Common.click(focusTag);
             statistics.focus();
-            return res;
+            return true;
         }
 
-        if (this.isFocus()) {
+        let hasFocusTag = Common.id(V.User.isFocus[2]).isVisibleToUser(true).findOnce();//已关注  （相互关注目前不确定，应该也是这个ID）
+        if (hasFocusTag) {
             return true;
         }
 
         throw new Error('找不到关注和已关注');
     },
 
-    /**
-     * 取消关注
-     * @returns {boolean}
-     */
     cancelFocus() {
-        let hasFocusTag = UiSelector().filter(v => {
-            return v.className().includes('Button');
-        }).descContains('关注').findOne();//text(已关注) || text(互相关注)
-        if (hasFocusTag && (hasFocusTag.desc() == '已关注' || hasFocusTag.desc() == '互相关注')) {
+        let hasFocusTag = Common.id(V.User.isFocus[2]).isVisibleToUser(true).findOnce();//text(已关注) || text(互相关注)
+        if (hasFocusTag) {
             hasFocusTag.click();
             Log.log('点击了已关注')
             Common.sleep(1500);
             //真正地点击取消
-            let res = false;
-            for (let i = 0; i < 2; i++) {
-                let tag = UiSelector().text('取消关注').findOne();
-                if (!tag) {
-                    break;
-                }
-                tag.parent().click();
-                Common.sleep(1000 + 1000 * Math.random());
+            let cancelTag = Common.id(V.User.cancelFocus[0]).text(V.User.cancelFocus[1]).isVisibleToUser(true).findOnce();
+            Log.log('cancelTag', cancelTag);
+            if (cancelTag) {
+                Common.click(cancelTag);
+                Common.sleep(2000);
             }
-            return false;
         }
 
-        if (!this.isFocus()) {
+        let focusTag = Common.id(V.User.isFocus[0]).text(V.User.isFocus[1]).findOnce();
+        if (focusTag) {
             Log.log('取消关注了');
             return true;
         }
 
-        Log.log('没有取消关注');
-        return false;
+        throw new Error('找不到关注和已关注');
     },
 
-    /**
-     * 获取用户信息
-     * @returns {object}
-     */
     getUserInfo() {
         let res = {};
         res = {

@@ -1,20 +1,16 @@
-let tCommon = require('../app/dy/Common.js');
-let DyIndex = require('../app/dy/Index.js');
-let DySearch = require('../app/dy/Search.js');
-let DyUser = require('../app/dy/User.js');
-let storage = require('../common/storage.js');
-let machine = require('../common/machine.js');
-let baiduWenxin = require('../service/baiduWenxin.js');
+let tCommon = require('app/dy/Common.js');
+let DyIndex = require('app/dy/Index.js');
+let DySearch = require('app/dy/Search.js');
+let DyUser = require('app/dy/User.js');
+let DyVideo = require('app/dy/Video.js');
+let storage = require('common/storage.js');
+let machine = require('common/machine.js');
+let DyComment = require('app/dy/Comment.js');
+let baiduWenxin = require('service/baiduWenxin.js');
 
 let task = {
     contents: [],
-    /** @type {any} */
     me: {},
-    /**
-     * 
-     * @param {any} settingData 
-     * @returns 
-     */
     run(settingData) {
         return this.testTask(settingData);
     },
@@ -26,38 +22,26 @@ let task = {
         Log.setFile(allFile);
     },
 
-    
     //type 0 评论，1私信
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} title
-     * @param {number} [age] 
-     * @param {number} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
-        let genderStr = ['女', '男', '未知'][gender];
+    getMsg(type, title, age, gender) {
         if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
+            return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
         }
+
+        //return { msg: ['厉害', '六六六', '666', '拍得很好', '不错哦', '关注你很久了', '学习了', '景色不错', '真的很不错', '太厉害了', '深表认同', '来过了', '茫茫人海遇见你', '太不容易了', '很好', '懂了', '我看到了', '可以的', '一起加油', '真好', '我的个乖乖'][Math.round(Math.random() * 20)] };
         return machine.getMsg(type) || false;//永远不会结束
     },
 
-    /**
-     * 
-     * @param {any} settingData 
-     * @returns 
-     */
     testTask(settingData) {
         //首先进入点赞页面
         DyIndex.intoMyPage();
         this.me = {
             nickname: DyUser.isCompany() ? DyUser.getDouyin() : DyUser.getNickname(),
             douyin: DyUser.getDouyin(),
+            //focusCount: DyUser.getFocusCount(),
         }
 
-        Log.log(JSON.stringify({
+        tCommon.toast(JSON.stringify({
             '账号：': this.me.douyin,
             '昵称：': this.me.nickname,
         }));
@@ -75,26 +59,30 @@ let task = {
                 DyIndex.intoSearchPage();
             }
 
-            DySearch.homeIntoSearchUser(settingData.account);
+            let res = DySearch.homeIntoSearchUser(settingData.account);
+            if (res) {
+                return res;
+            }
         }
 
-        return DyUser.focusUserList(1, this.getMsg, machine, settingData, this.contents, this.me.nickname);
+        return DyUser.focusUserList(1, this.getMsg, DyVideo, DyComment, machine, settingData, this.contents, this.me.nickname);
     },
 }
 
 let settingData = machine.getFansSettingRate();//weilan31045
 
+settingData.isFirst = true;
 Log.log('settingData', settingData);
 console.log(machine.getMsg(0));
 console.log(settingData.opCount);
 
 if (!settingData.account) {
-    FloatDialogs.toast('未设置账号，取消执行');
+    tCommon.showToast('未设置账号，取消执行');
+    //console.hide();();
     System.exit();
 }
 
 tCommon.openApp();
-System.setAccessibilityMode('fast');
 //开启线程  自动关闭弹窗
 Engines.executeScript("unit/dialogClose.js");
 

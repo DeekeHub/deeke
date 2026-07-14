@@ -1,5 +1,5 @@
-let Common = require('./Common.js');
-let statistics = require('../../common/statistics');
+let Common = require('app/dy/Common.js');
+let statistics = require('common/statistics');
 
 let Live = {
     /**
@@ -27,23 +27,14 @@ let Live = {
      * @returns {UiObject[]}
      */
     getUserTags() {
-        System.setAccessibilityMode('!fast');
-        let parent = UiSelector().className('android.widget.LinearLayout').isVisibleToUser(true).filter(v => {
-            if (!v.parent() || !v.parent().parent()) {
-                return false;
-            }
-            console.log(v.parent().className(), v.parent().parent().className());
-            return v.parent().className() == 'android.widget.FrameLayout' && v.parent().parent().className() == 'android.view.ViewGroup';
-        }).findOnce();
+        let parent = UiSelector().className('androidx.recyclerview.widget.RecyclerView').isVisibleToUser(true).findOnce();
         if (!parent) {
             Log.log('找不到观众列表');
             FloatDialogs.toast('找不到观众列表');
-            System.setAccessibilityMode('fast');
             return [];
         }
 
-        let tags = parent.children().find(UiSelector().className('android.view.ViewGroup').isVisibleToUser(true));
-        System.setAccessibilityMode('fast');
+        let tags = parent.children().find(UiSelector().className('android.widget.FrameLayout').isVisibleToUser(true));
         return tags;
     },
 
@@ -100,7 +91,7 @@ let Live = {
         }).scrollable(true).findOne();
 
         if (!container) {
-            return Common.swipe(0, 1, 5);
+            return false;
         }
 
         let left = container.bounds().left + container.bounds().width() * (0.2 + Math.random() * 0.6);
@@ -117,7 +108,7 @@ let Live = {
     loopClick(times) {
         try {
             let closeTag = UiSelector().desc('关闭').clickable(true).isVisibleToUser(true).filter((v) => {
-                return v && v.bounds() && v.bounds().top > Device.height() / 3 && v.bounds().width() > 0 && v.bounds().left > 0;
+                return v && v.bounds() && v.bounds().top > Device.height() / 3 && v.bounds().width > 0 && v.bounds().left > 0;
             }).findOnce();
             if (closeTag) {
                 closeTag.click();
@@ -167,7 +158,7 @@ let Live = {
                 Common.sleep(1000);
 
                 let emjs = UiSelector().className('android.widget.FrameLayout').isVisibleToUser(true).filter(v => {
-                    return !!(v.desc() && v.desc().indexOf('[') == 0 && v.desc().indexOf(']') > 0);
+                    return v.desc() && v.desc().indexOf('[') == 0 && v.desc().indexOf(']') > 0;
                 }).find();
 
                 let count = 1 + Math.floor(Math.random() * 3);

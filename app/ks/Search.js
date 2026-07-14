@@ -1,32 +1,41 @@
 let tCommon = require('app/ks/Common.js');
+// let KsUser = require('app/ks/User.js');
 let statistics = require('common/statistics.js');
+let V = require('version/KsV.js');
 
 let Search = {
     contents: [],
     userList(getAccounts, decCount, KsUser, DyComment, DyVideo, setAccount, getMsg, params) {
         let settingData = params.settingData;
         Log.log('开始执行用户列表');
+        let rpCount = 0;
+        let arr = [];
         let errorCount = 0;
 
         while (true) {
-            let tags = tCommon.id('user_root_layout').isVisibleToUser(true).find();
+            let tags = tCommon.id(V.Common.userList[0]).isVisibleToUser(true).find();
             Log.log('tags', tags.length);
             if (tags.length === 0) {
                 errorCount++;
                 Log.log('containers为0');
             }
 
+            arr.push(tags ? (tags[0] && tags[0]._addr) : null);
+            if (arr.length >= 3) {
+                arr.shift();
+            }
+
             errorCount = 0;
             for (let i in tags) {
-                let avatarTag = tags[i].children().findOne(tCommon.id('avatar').isVisibleToUser(true));
-                let nicknameTag = tags[i].children().findOne(tCommon.id('name').isVisibleToUser(true));
+                let avatarTag = tags[i].children().findOne(tCommon.id(V.Common.userList[1]).isVisibleToUser(true));
+                let nicknameTag = tags[i].children().findOne(tCommon.id(V.Common.userList[2]).isVisibleToUser(true));
                 if (!nicknameTag || !avatarTag) {
                     Log.log('没有内容');
                     continue;
                 }
 
-                tags[i].click();
-                tCommon.sleep(3000 + 1000 * Math.random());
+                avatarTag.click();
+                tCommon.sleep(2500 + 1000 * Math.random());
 
                 //看看有没有视频，有的话，操作评论一下，按照20%的频率即可
                 statistics.viewUser();
@@ -37,7 +46,19 @@ let Search = {
                     account = KsUser.getDouyin();
                 } catch (e) {
                     Log.log('找不到昵称');
-                    continue;
+                    //看看是不是直播，是的话，下一个
+                    if (tCommon.id(V.Live.viewCount[0]).isVisibleToUser(true).findOne()) {
+                        Log.log('直播间');
+                        tCommon.back(1, 1000);
+                        tCommon.sleep(1000 * Math.random());
+                        continue;
+                    }
+                    if (tCommon.id(V.Common.userList[0]).isVisibleToUser(true).findOne()) {
+                        //应该是账号封禁了，没有点击进去，直接下一个
+                        continue;
+                    } else {
+                        throw new Error(e);
+                    }
                 }
                 if (isPrivateAccount || !account) {
                     tCommon.back();
@@ -127,9 +148,9 @@ let Search = {
                 Log.log(account, getAccounts(account));
                 this.contents.push(account);
                 tCommon.back(1, 1000);//用户页到列表页
-                if (!tCommon.id('user_root_layout').isVisibleToUser(true).findOnce()) {
+                if (!tCommon.id(V.Common.userList[0]).isVisibleToUser(true).findOnce()) {
                     tCommon.sleep(1000);
-                    if (!tCommon.id('user_root_layout').isVisibleToUser(true).findOnce()) {
+                    if (!tCommon.id(V.Common.userList[0]).isVisibleToUser(true).findOnce()) {
                         Log.log('没有看到列表，返回');
                         tCommon.back(1, 800);//偶尔会出现没有返回回来的情况，这里加一个判断
                     }
@@ -142,12 +163,23 @@ let Search = {
                 throw new Error('遇到3次错误');
             }
 
-            if (!tCommon.id('user_root_layout').isVisibleToUser(true).findOnce()) {
+            if (arr[0] === arr[1]) {
+                rpCount++;
+            } else {
+                rpCount = 0;
+            }
+            Log.log('rpCount', rpCount);
+
+            if (rpCount >= 5) {
+                return true;
+            }
+
+            if (!tCommon.id(V.Common.userList[0]).isVisibleToUser(true).findOnce()) {
                 Log.log('没有看到列表，返回2');
                 tCommon.back(1, 800);//偶尔会出现没有返回回来的情况，这里加一个判断
             }
 
-            if (!tCommon.id('user_root_layout').isVisibleToUser(true).findOnce()) {
+            if (!tCommon.id(V.Common.userList[0]).isVisibleToUser(true).findOnce()) {
                 Log.log('没有看到列表，返回2');
                 tCommon.back(1, 800);//偶尔会出现没有返回回来的情况，这里加一个判断
             }
@@ -157,7 +189,7 @@ let Search = {
         }
     },
 
-    homeIntoSearchVideo(keyword) {
+    homeIntoSearchVideo(keyword){
         this.intoUserVideoPage(keyword);
     },
 
@@ -172,7 +204,7 @@ let Search = {
         tag.setText(keyword);
         tCommon.sleep(2000 + 2000 * Math.random());
         let searchTag = UiSelector().className('android.widget.TextView').text('搜索').isVisibleToUser(true).findOne();
-        tCommon.click(searchTag, 0.2);
+        tCommon.click(searchTag);
         System.setTimeWindowShow(false);
         tCommon.sleep(4000 + 2000 * Math.random());
 
@@ -197,17 +229,20 @@ let Search = {
             if (!container) {
                 return false;//没有匹配
             }
-            child = container.parent();
+            child = container.parent().parent().parent();
         } else {
-            child = tCommon.id('container').isVisibleToUser(true).findOne();
+            let container = tCommon.id('container').isVisibleToUser(true).findOne();
+            child = container.children().findOne(UiSelector().className('android.widget.ImageView').filter(v => {
+                return v.bounds().width() > Device.width() / 3 && v.bounds().height() > Device.height() / 4;
+            }));
         }
 
-        child.click();
-        tCommon.sleep(3000 + 2000 * Math.random());
+        tCommon.click(child);
+        tCommon.sleep(3000 + 3000 * Math.random());
         //如果type为2，还需要进入用户视频
         if (type == 2) {
             let workTag = UiSelector().className('android.widget.ImageView').desc('作品').isVisibleToUser(true).findOne();
-            tCommon.click(workTag, 0.2);
+            tCommon.click(workTag);
             tCommon.sleep(3000 + 3000 * Math.random());
         }
     }

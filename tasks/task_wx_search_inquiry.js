@@ -1,28 +1,19 @@
-let tCommon = require('../app/wx/Common.js');
-let WxIndex = require('../app/wx/Index.js');
-let WxSearch = require('../app/wx/Search.js');
-let WxUser = require('../app/wx/User.js');
-let storage = require('../common/storage.js');
-let machine = require('../common/machine.js');
-let WxComment = require('../app/wx/Comment.js');
-let baiduWenxin = require('../service/baiduWenxin.js');
-let statistics = require('../common/statistics.js');
-let WxVideo = require('../app/wx/Video.js');
+let tCommon = require('app/wx/Common.js');
+let WxIndex = require('app/wx/Index.js');
+let WxSearch = require('app/wx/Search.js');
+let WxUser = require('app/wx/User.js');
+let storage = require('common/storage.js');
+let machine = require('common/machine.js');
+let WxComment = require('app/wx/Comment.js');
+let baiduWenxin = require('service/baiduWenxin.js');
+let statistics = require('common/statistics.js');
+let WxVideo = require('app/wx/Video.js');
 
 let task = {
-    /** @type {string[]} */
     contents: [],
-    /** @type {string[]} */
     nicknames: [],
-    /** @type {string[]} */
     kws: [],
     count: 10,
-    /**
-     * 
-     * @param {string} keyword 
-     * @param {string[]} kws 
-     * @returns 
-     */
     run(keyword, kws) {
         this.kws = tCommon.splitKeyword(kws);
         Log.log('keyword', keyword, this.count, this.kws);
@@ -37,27 +28,15 @@ let task = {
     },
 
     //type 0 评论，1私信
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} [title] 
-     * @param {number} [age] 
-     * @param {number} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
-        let genderStr = ['女', '男', '未知'][gender];
-        if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
+    getMsg(type, title, age, gender) {
+        if (storage.getMachineType() === 1) {
+            if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
+                return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
+            }
+            return machine.getMsg(type) || false;//永远不会结束
         }
-        return machine.getMsg(type) || false;//永远不会结束
     },
 
-    /**
-     * 
-     * @param {string} content 
-     * @returns 
-     */
     contains(content) {
         for (let str of this.kws) {
             if (content.indexOf(str) !== -1) {
@@ -68,11 +47,6 @@ let task = {
         return false;
     },
 
-    /**
-     * 
-     * @param {string} keyword 
-     * @returns 
-     */
     testTask(keyword) {
         //首先进入点赞页面
         WxIndex.intoHome();
@@ -87,7 +61,6 @@ let task = {
                 continue;
             }
 
-            /** @type {string} */
             let content = WxVideo.getContent();
             if (this.contents.indexOf(content) !== -1) {
                 Log.log('已经操作了，或者关键词不匹配');
@@ -116,20 +89,10 @@ let task = {
             machine.set('task_wx_search_inquiry_' + Encrypt.md5(nickname + "_" + content), true);
             this.contents.push(content);
             tCommon.sleep(1000 + 1000 * Math.random());
-            if (tCommon.id('d4v').isVisibleToUser(true).findOne()) {
-                //如果评论还是打开的，则关闭
-                tCommon.sleep(1000 + 1000 * Math.random());
-            }
             WxVideo.next();
         }
     },
 
-    /**
-     * 
-     * @param {string|null} douyin 
-     * @param {number} commentCount 
-     * @returns 
-     */
     comments(douyin, commentCount) {
         WxVideo.openComment(true);
         Log.log('打开或者滑动到评论区域');
@@ -150,7 +113,6 @@ let task = {
             }
 
             for (let k in comments) {
-                /** type {string} */
                 let nickname = comments[k].nickname;
                 if (comments[k]['content'] == "" || !this.contains(comments[k]['content']) || this.nicknames.includes(nickname)) {
                     Log.log('数据：', comments[k]['content'], !this.contains(comments[k]['content']), this.nicknames.includes(nickname));

@@ -1,24 +1,19 @@
-let tCommon = require('../app/ks/Common.js');
-// let KsIndex = require('../app/ks/Index.js');
-let KsSearch = require('../app/ks/Search.js');
-let KsUser = require('../app/ks/User.js');
-let KsVideo = require('../app/ks/Video.js');
-let storage = require('../common/storage.js');
-let machine = require('../common/machine.js');
-let KsComment = require('../app/ks/Comment.js');
-let baiduWenxin = require('../service/baiduWenxin.js');
+let tCommon = require('app/ks/Common.js');
+// let KsIndex = require('app/ks/Index.js');
+let KsSearch = require('app/ks/Search.js');
+let KsUser = require('app/ks/User.js');
+let KsVideo = require('app/ks/Video.js');
+let storage = require('common/storage.js');
+let machine = require('common/machine.js');
+let KsComment = require('app/ks/Comment.js');
+let baiduWenxin = require('service/baiduWenxin.js');
 
 let task = {
     contents: [],
     count: 100,
     fans: 20000,
-    /** @type {any} */
     params: { clickZan: false, comment: false, },
-    /**
-     * 
-     * @param {any} settingData 
-     * @returns 
-     */
+    lib_id: undefined,
     run(settingData) {
         return this.testTask(settingData);
     },
@@ -31,20 +26,13 @@ let task = {
     },
 
     //type 0 评论，1私信
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} [title] 
-     * @param {number} [age] 
-     * @param {number} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
-        let genderStr = ['女', '男', '未知'][gender];
-        if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
+    getMsg(type, title, age, gender) {
+        if (storage.getMachineType() === 1) {
+            if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
+                return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
+            }
+            return machine.getMsg(type) || false;//永远不会结束
         }
-        return machine.getMsg(type) || false;//永远不会结束
     },
 
     decCount() {
@@ -52,11 +40,6 @@ let task = {
         return --this.count;
     },
 
-    /**
-     * 
-     * @param {any} settingData 
-     * @returns 
-     */
     testTask(settingData) {
         //首先进入点赞页面
         //KsIndex.intoHome(true);
@@ -66,22 +49,19 @@ let task = {
         tCommon.sleep(3000);
         this.params.settingData = settingData;
         return KsSearch.userList(
-            /** @ts-ignore */
             (v) => machine.get('task_ks_search_user_' + v, 'bool'),
             () => this.decCount(),
             KsUser,
             KsComment,
             KsVideo,
-            /** @ts-ignore */
             (v) => machine.set('task_ks_search_user_' + v, true),
-            /** @ts-ignore */
             (v, title, age, gender) => this.getMsg(v, title, age, gender),
             this.params
         );
     },
 }
 
-/** @type {any} */
+
 let settingData = machine.getKsSearchUserSettingRate();//commentRate
 settingData.isFirst = false;//首个视频必操作，关闭
 Log.log('settingData', settingData);
@@ -96,7 +76,7 @@ if (!task.count) {
 // tCommon.openApp(); //已经自动打开了，不需要再次打开
 //开启线程  自动关闭弹窗
 //Engines.executeScript("unit/dialogClose.js");
-System.setAccessibilityMode('fast');
+
 while (true) {
     task.log();
     try {

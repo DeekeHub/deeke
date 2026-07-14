@@ -1,10 +1,10 @@
-let tCommon = require("../app/dy/Common");
-let DyUser = require("../app/dy/User");
-let DyVideo = require("../app/dy/Video");
-let DyComment = require("../app/dy/Comment");
-let storage = require("../common/storage");
-let machine = require("../common/machine");
-let baiduWenxin = require("../service/baiduWenxin");
+let tCommon = require("app/dy/Common");
+let DyUser = require("app/dy/User");
+let DyVideo = require("app/dy/Video");
+let DyComment = require("app/dy/Comment");
+let storage = require("common/storage");
+let machine = require("common/machine");
+let baiduWenxin = require("service/baiduWenxin");
 
 let task = {
     index: -1,
@@ -14,15 +14,7 @@ let task = {
         return this.testTask();
     },
 
-    /**
-     * 
-     * @param {number} type 
-     * @param {string} title 
-     * @param {number} [age] 
-     * @param {any} [gender] 
-     * @returns {any}
-     */
-    getMsg(type, title, age, gender = 2) {
+    getMsg(type, title, age, gender) {
         gender = ['女', '男', '未知'][gender];
         if (type == 1 && machine.get('task_dy_team_buy_private_share_rate', 'bool')) {
             return { msg: '' };
@@ -41,11 +33,6 @@ let task = {
         Log.setFile(allFile);
     },
 
-    /**
-     * 
-     * @param {string} name 
-     * @returns 
-     */
     intoShop(name) {
         let tag = UiSelector().clickable(true).descContains('团购').findOne();
         tag.click();
@@ -88,12 +75,6 @@ let task = {
         return true;
     },
 
-    /**
-     * 
-     * @param {string} str 
-     * @param {string[]} kw 
-     * @returns 
-     */
     includesKw(str, kw) {
         for (let i in kw) {
             if (str.includes(kw[i])) {
@@ -326,7 +307,7 @@ while (true) {
     } catch (e) {
         Log.log(e);
         tCommon.closeAlert(1);
-        tCommon.backHome();
+        tCommon.backHome(10);
     }
 }
 FloatDialogs.show('提示', '已完成');
