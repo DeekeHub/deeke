@@ -1,23 +1,36 @@
-let tCommon = require("app/dy/Common");
-let DyIndex = require('app/dy/Index.js');
-let DySearch = require('app/dy/Search.js');
-let DyUser = require('app/dy/User.js');
-let DyLive = require('app/dy/Live.js');
-// let DyComment = require('app/dy/Comment.js');
-
-// let dy = require('app/iDy');
-// let config = require('config/config');
-let storage = require("common/storage");
-let machine = require("common/machine");
+let tCommon = require("../app/dy/Common");
+let DyIndex = require('../app/dy/Index.js');
+let DySearch = require('../app/dy/Search.js');
+let DyUser = require('../app/dy/User.js');
+let DyLive = require('../app/dy/Live.js');
+let storage = require("../common/storage");
+let machine = require("../common/machine");
+let baiduWenxin = require('../service/baiduWenxin');
 
 let task = {
     rp: 0,
     msg: [],
+
+    /**
+     * 
+     * @param {string} account 
+     * @param {number} second 
+     * @returns 
+     */
     run(account, second) {
         return this.testTask(account, second);
     },
 
-    getMsg(type, title, age, gender) {
+    /**
+     * 
+     * @param {number} type 
+     * @param {string} [title]
+     * @param {number} [age] 
+     * @param {any} [gender]
+     * @returns 
+     */
+    getMsg(type, title, age, gender = 2) {
+        gender = ['女', '男', '未知'][gender];
         let comments = storage.get('task_dy_live_barrage_comments');
         if (comments) {
             let tmp = comments.split("\n");
@@ -38,6 +51,12 @@ let task = {
         Log.setFile(allFile);
     },
 
+    /**
+     * 
+     * @param {string} account 
+     * @param {number} second 
+     * @returns 
+     */
     testTask(account, second) {
         //首先进入点赞页面
         if (!tCommon.getRemark(account)) {
@@ -48,7 +67,9 @@ let task = {
             }
 
             DySearch.intoSearchList(account, 2);
-            DySearch.intoLiveRoom(account);
+            if (!DySearch.intoLiveRoom(account)) {
+                return true;
+            }
         } else {
             account = account.substring(1);
             App.gotoIntent('snssdk1128://user/profile/' + account);
@@ -82,14 +103,13 @@ let task = {
 let account = storage.get('task_dy_live_barrage_account', 'string');
 if (!account) {
     tCommon.showToast('直播账号不能为空');
-    //console.hide();();
     System.exit();
 }
 
 tCommon.openApp();
 //开启线程  自动关闭弹窗
 Engines.executeScript("unit/dialogClose.js");
-
+System.setAccessibilityMode('fast');
 while (true) {
     task.log();
     try {

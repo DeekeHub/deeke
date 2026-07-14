@@ -1,9 +1,9 @@
-let storage = require("common/storage.js");
-let machine = require("common/machine.js");
-let Common = require("app/xhs/Common.js");
-let User = require("app/xhs/User.js");
-let Work = require("app/xhs/Work.js");
-let baiduWenxin = require('service/baiduWenxin.js');
+let storage = require("../common/storage.js");
+let machine = require("../common/machine.js");
+let Common = require("../app/xhs/Common.js");
+let User = require("../app/xhs/User.js");
+let Work = require("../app/xhs/Work.js");
+let baiduWenxin = require('../service/baiduWenxin.js');
 
 let task = {
     log() {
@@ -14,12 +14,19 @@ let task = {
     },
 
     //type 0 评论，1私信
-    getMsg(type, title, age, gender) {
+    /**
+     * 
+     * @param {number} type 
+     * @param {string} [title] 
+     * @param {number} [age] 
+     * @param {number} [gender] 
+     * @returns {any}
+     */
+    getMsg(type, title, age, gender = 2) {
+        let genderStr = ['女', '男', '未知'][gender];
         if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
+            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
         }
-
-        //return { msg: ['厉害', '六六六', '666', '拍得很好', '不错哦', '关注你很久了', '学习了', '景色不错', '真的很不错', '太厉害了', '深表认同', '来过了', '茫茫人海遇见你', '太不容易了', '很好', '懂了', '我看到了', '可以的', '一起加油', '真好', '我的个乖乖'][Math.round(Math.random() * 20)] };
         return machine.getMsg(type) || false;//永远不会结束
     },
 
@@ -40,6 +47,11 @@ let task = {
         this.tokerFans(config);
     },
 
+    /**
+     * 
+     * @param {any} config 
+     * @returns 
+     */
     tokerFans(config) {
         let selectedTag = UiSelector().className('android.view.ViewGroup').descContains('已选定').filter(v => {
             return v.desc().indexOf('粉丝') !== -1 || v.desc().indexOf('关注') !== -1;
@@ -110,10 +122,11 @@ let task = {
                     //作品数和粉丝数，仅仅针对“粉丝列表”
                     if (selectText.indexOf('粉丝') !== -1) {
                         let workTag = childs.findOne(UiSelector().className('android.widget.TextView').textContains('笔记').filter(v => {
-                            return v.parent() != null && v.parent().className() == 'android.widget.RelativeLayout';
+                            return v.parent() != null && v.parent().className() == 'android.widget.LinearLayout';
                         }));
+                        Log.log('workTag', workTag);
                         let fansTag = childs.findOne(UiSelector().className('android.widget.TextView').textContains('粉丝').filter(v => {
-                            return v.parent() != null && v.parent().className() == 'android.widget.RelativeLayout';
+                            return v.parent() != null && v.parent().className() == 'android.widget.LinearLayout';
                         }));
                         let workCount = User.getListWorkCount(workTag);
                         if (workCount < config.minWork) {
@@ -212,7 +225,7 @@ let task = {
                 }
 
                 let likeTag = UiSelector().className('android.widget.TextView').filter(v => {
-                    return v && v.text() && v.text() == '你可能感兴趣的人';
+                    return !!(v && v.text() && v.text() == '你可能感兴趣的人');
                 }).isVisibleToUser(true).findOne();
                 if (likeTag) {
                     return true;//操作完成了，下面都是“你可能感兴趣的人”
@@ -235,5 +248,6 @@ let task = {
     }
 }
 
+System.setAccessibilityMode('fast');
 task.run();
 FloatDialogs.show('提示', '已完成');

@@ -1,25 +1,41 @@
-let tCommon = require("app/ks/Common");
-let KsIndex = require("app/ks/Index");
-let KsSearch = require("app/ks/Search");
-let KsUser = require("app/ks/User");
-let KsVideo = require("app/ks/Video");
-let KsComment = require("app/ks/Comment");
-let storage = require("common/storage");
-let machine = require("common/machine");
-let baiduWenxin = require("service/baiduWenxin");
-let statistics = require("common/statistics");
+let tCommon = require("../app/ks/Common");
+let KsIndex = require("../app/ks/Index");
+let KsSearch = require("../app/ks/Search");
+let KsUser = require("../app/ks/User");
+let KsVideo = require("../app/ks/Video");
+let KsComment = require("../app/ks/Comment");
+let storage = require("../common/storage");
+let machine = require("../common/machine");
+let baiduWenxin = require("../service/baiduWenxin");
+let statistics = require("../common/statistics");
 
 let task = {
     index: -1,
     nicknames: [],
     contents: [],
-    run(input, kw, sleepSecond) {
-        return this.testTask(input, kw, sleepSecond);
+    /**
+     * 
+     * @param {string} input 
+     * @param {string} kw 
+     * @returns 
+     */
+    run(input, kw) {
+        return this.testTask(input, kw);
     },
 
-    getMsg(type, title, age, gender) {
+    //type 0 评论，1私信
+    /**
+     * 
+     * @param {number} type 
+     * @param {string} [title] 
+     * @param {number} [age] 
+     * @param {number} [gender] 
+     * @returns {any}
+     */
+    getMsg(type, title, age, gender = 2) {
+        let genderStr = ['女', '男', '未知'][gender];
         if (storage.get('setting_baidu_wenxin_switch', 'bool')) {
-            return { msg: type === 1 ? baiduWenxin.getChat(title, age, gender) : baiduWenxin.getComment(title) };
+            return { msg: type === 1 ? baiduWenxin.getChat(title, age, genderStr) : baiduWenxin.getComment(title) };
         }
         return machine.getMsg(type) || false;//永远不会结束
     },
@@ -31,6 +47,12 @@ let task = {
         Log.setFile(allFile);
     },
 
+    /**
+     * 
+     * @param {string} str 
+     * @param {string[]} kw 
+     * @returns 
+     */
     includesKw(str, kw) {
         for (let i in kw) {
             if (str.includes(kw[i])) {
@@ -40,12 +62,17 @@ let task = {
         return false;
     },
 
-    testTask(input, kw, sleepSecond) {
+    /**
+     * 
+     * @param {any} input 
+     * @param {any} kw 
+     * @returns 
+     */
+    testTask(input, kw) {
         //首先进入页面
         this.index++;
         KsIndex.intoSearchPage();
         input = tCommon.splitKeyword(input);
-        let douyin = input[this.index];
 
         kw = tCommon.splitKeyword(kw);
         Log.log('账号：', input);
@@ -54,6 +81,7 @@ let task = {
         if (this.index >= input.length) {
             this.index = 0;
         }
+        let douyin = input[this.index];
 
         let res = KsSearch.intoUserVideoPage(input[this.index], 2);
         if (res === false) {
@@ -62,10 +90,11 @@ let task = {
         }
 
         //获取最新的前三视频
-        let i = 3;
-        while (i-- > 0) {
+        let i = 0;
+        while (true) {
             let title = KsVideo.getContent();
             let commentCount = KsVideo.getCommentCount();
+            /** @ts-ignore */
             if (commentCount === 0 || this.contents.includes(title)) {
                 Log.log('下一个视频', i);
                 KsVideo.next();
@@ -76,36 +105,11 @@ let task = {
             statistics.viewVideo();
             statistics.viewTargetVideo();
 
-            KsVideo.openComment(commentCount);
+            KsVideo.openComment(commentCount > 0);
             tCommon.sleep(2000 + 1000 * Math.random());
-            let rp = 0;
-            let lastComment = undefined;
-            let maxSwipe = 1200;
+
             while (true) {
                 let comments = KsComment.getList();
-                maxSwipe--;
-                if (maxSwipe <= 0) {
-                    tCommon.back();
-                    tCommon.sleep(1000);
-                    Log.log('滑动了1200次了');
-                    break;
-                }
-
-                if (JSON.stringify(comments) === lastComment) {
-                    rp++;
-                } else {
-                    rp = 0;
-                }
-                // Log.log(JSON.stringify(comments), lastComment, rp);
-
-                if (rp >= 3) {
-                    tCommon.back();
-                    tCommon.sleep(1000);
-                    Log.log('评论扫描完了');
-                    break;
-                }
-                lastComment = JSON.stringify(comments);
-
                 for (let k in comments) {
                     if (comments[k]['content'] == "" || !this.includesKw(comments[k]['content'], kw) || this.nicknames.includes(comments[k].nickname)) {
                         Log.log('数据：', comments[k]['content'], !this.includesKw(comments[k]['content'], kw), this.nicknames.includes(comments[k].nickname));
@@ -118,6 +122,11 @@ let task = {
                     }
                     Log.log('找到了关键词', comments[k]['content']);
 
+                    if (comments[k].isAuthor) {
+                        Log.log('作者，跳过');
+                        continue;
+                    }
+
                     try {
                         if (!KsComment.isZan()) {
                             KsComment.clickZan(comments[k]);
@@ -127,6 +136,7 @@ let task = {
                         continue;
                     }
 
+                    /** @ts-ignore */
                     this.nicknames.push(comments[k].nickname);
                     machine.set('task_ks_toker_comment_' + douyin + '_' + comments[k].nickname, true);
                     try {
@@ -170,31 +180,37 @@ let task = {
                 }
 
                 Log.log('下一页评论');
-                tCommon.swipeCommentListOp();
+                tCommon.sleep(500);
+                if (!tCommon.swipeCommentListOp()) {
+                    tCommon.back();
+                    tCommon.sleep(1000);
+                    Log.log('评论操作完了');
+                    break;
+                }
                 tCommon.sleep(1500 + 500 * Math.random());
             }
-            Log.log('下一个视频', i);
+            Log.log('下一个视频', i++);
             this.contents.push(title);
-            KsVideo.next();
+            if (!KsVideo.next()) {
+                Log.log('操作完了');
+                break;
+            }
             tCommon.sleep(4000 + Math.random() * 2000);
         }
 
         tCommon.back(5, 1500);
         tCommon.backApp();
         if (this.index === input.length - 1) {
-            System.toast('一轮完成，休息' + sleepSecond + '秒');
-            Log.log('一轮完成，休息' + sleepSecond + '秒');
-            tCommon.sleep(sleepSecond * 1000);//休眠十分钟
+            return 1;
         } else {
-            System.toast('一个账号完成，休息sleepSecond秒');
-            Log.log('一个账号完成，休息sleepSecond秒');
-            tCommon.sleep(sleepSecond * 1000);//休眠sleepSecond秒
+            Log.log('一个账号完成');
         }
         this.contents = [];
         return true;//重启
     },
 }
 
+task.log();
 let input = machine.get('task_ks_toker_comment_account');
 Log.log("input内容：" + machine.get('task_ks_toker_comment_account', 'string'));
 if (!input) {
@@ -214,13 +230,17 @@ if (!Access.isMediaProjectionEnable()) {
     System.exit();
 }
 
-let sleepSecond = machine.get('task_ks_toker_comment_sleep_second');
+System.setAccessibilityMode('fast');
 tCommon.openApp();
 while (true) {
-    task.log();
     try {
-        let r = task.run(input, kw, sleepSecond);
+        let r = task.run(input, kw);
         if (r === 'exit') {
+            break;
+        }
+
+        if (r === 1) {
+            FloatDialogs.show('完成');
             break;
         }
 

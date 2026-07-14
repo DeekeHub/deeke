@@ -1,6 +1,5 @@
 
 let cStorage = require('common/storage.js');
-let V = require('version/KsV.js');
 
 const Common = {
     //封装的方法
@@ -59,9 +58,8 @@ const Common = {
         this.openApp();
         let i = 0;
         while (i++ < 5) {
-            let homeTag = this.id(V.Common.backHome[0]).isVisibleToUser(true).findOnce();
+            let homeTag = UiSelector().className('androidx.appcompat.app.ActionBar$c').desc('首页').isVisibleToUser(true).findOnce();
             if (!homeTag) {
-                Log.log(this.id(V.Common.backHome[0]).isVisibleToUser(true).findOnce());
                 this.back();
                 this.sleep(1000);
                 continue;
@@ -192,71 +190,42 @@ const Common = {
     },
 
     swipeSearchUserOp() {
-        this.swipeSearchUserOpTarge = this.id(V.Common.swipeSearchUserOp[0]).scrollable(true).isVisibleToUser(true).findOne();
+        this.swipeSearchUserOpTarge = this.id('recycler_view').scrollable(true).isVisibleToUser(true).findOne();
         if (this.swipeSearchUserOpTarge) {
-            this.swipeSearchUserOpTarge.scrollForward();
+            return this.swipeSearchUserOpTarge.scrollForward();
         } else {
             Log.log('滑动失败');
         }
+        return false;
     },
 
     swipeFansListOp() {
-        this.swipeFansListOpTarge = this.id(V.Common.swipeFansListOp[0]).scrollable(true).filter((v) => {
-            return v && v.bounds() && v.bounds().top > 0 && v.bounds().left >= 0 && v.bounds().width() == Device.width() && v.bounds().top >= 0;
-        }).findOnce();
-
-        if (this.swipeFansListOpTarge) {
-            this.swipeFansListOpTarge.scrollForward();
-        } else {
-            Log.log('滑动失败');
-        }
-        //Log.log(this.swipeFansListOpTarge);
+        return this.swipeSearchUserOp();
     },
 
     swipeFocusListOp() {
-        this.swipeFocusListOpTarge = this.id(V.Common.swipeFocusListOp).scrollable(true).filter((v) => {
-            return v && v.bounds() && v.bounds().top > 0 && v.bounds().left >= 0 && v.bounds().width() == Device.width() && v.bounds().top >= 0;
-        }).findOnce();
-        if (this.swipeFocusListOpTarge) {
-            this.swipeFocusListOpTarge.scrollForward();
-        } else {
-            Log.log('滑动失败');
-        }
-        //Log.log(this.swipeFocusListOpTarge);
-
+        return this.swipeSearchUserOp();
     },
 
     swipeCommentListOp() {
-        this.swipeCommentListOpTarget = this.id(V.Common.swipeCommentListOp[0]).scrollable(true).isVisibleToUser(true).findOnce();
-        if (this.swipeCommentListOpTarget) {
-            this.swipeCommentListOpTarget.scrollForward();
-        } else {
-            Log.log('滑动失败');
-        }
-        //Log.log(this.swipeCommentListOpTarget);
+        return this.swipeSearchUserOp();
     },
 
     swipeSearchTabToLeft() {
-        let tag = this.id(V.C.userListTop).isVisibleToUser(true).findOne() || this.id(V.C.userListTop).findOne();
+        let tag = this.id('tabs').scrollable(true).isVisibleToUser(true).findOne();
+        let res = false;
+
         if (tag) {
-            tag.scrollForward();
+            res = tag.scrollForward();
         } else {
             Log.log('滑动列表');
         }
+        return res;
     },
 
     //粉丝群列表滑动
     swipeFansGroupListOp() {
-        let tag = this.id(V.Message.fansSwipe[0]).scrollable(true).filter((v) => {
-            return v && v.bounds() && v.bounds().top > 0 && v.bounds().left >= 0 && v.bounds().width() == Device.width() && v.bounds().top >= 0;
-        }).findOnce();
-        console.log(tag);
-        if (tag) {
-            tag.scrollForward();
-        } else {
-            Log.log('滑动失败');
-        }
-        //Log.log(this.swipeCommentListOpTarget);
+        return this.swipeSearchUserOp();
     },
 
     //关闭弹窗
@@ -295,6 +264,10 @@ const Common = {
                     a = UiSelector().text("拒绝").clickable(true).isVisibleToUser(true).findOne() || UiSelector().text("拒绝").desc('拒绝').clickable(true).filter(f).isVisibleToUser(true).findOne();
                 }
 
+                if (!a) {
+                    a = UiSelector().text("立即领取").filter(f).isVisibleToUser(true).findOne();
+                }
+
                 let ff = function (v) {
                     return v && v.bounds() && v.bounds().top > Device.height() / 5 && v.bounds().top + v.bounds().height() < Device.height() * 0.8 && v.bounds().left > Device.width() / 2 && v.bounds().left + v.bounds().width() < Device.width() * 0.9;//只有在中间的位置才是弹窗
                 }
@@ -309,10 +282,12 @@ const Common = {
                     a = UiSelector().text('暂不公开').clickable(true).filter(f).isVisibleToUser(true).findOnce() || UiSelector().text('忽略本次').clickable(true).filter(f).isVisibleToUser(true).findOnce() || UiSelector().descContains('不再提醒').clickable(true).filter(f).isVisibleToUser(true).findOne();
                 }
 
-                if (a) {
+                if (a && a.isClickable()) {
                     a.click();
-                    Log.log(a);
-                    Log.log("可能的弹窗点击了");
+                    console.log(a);
+                    console.log("可能的弹窗点击了");
+                } else if (a) {
+                    this.click(a, 0.2);
                 }
 
                 if (k % 50 == 0) {

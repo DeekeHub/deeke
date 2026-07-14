@@ -1,7 +1,7 @@
-let tCommon = require("app/dy/Common");
-let DyIndex = require('app/dy/Index.js');
-let DyUser = require('app/dy/User.js');
-let machine = require('common/machine.js');
+let tCommon = require("../app/dy/Common");
+let DyIndex = require('../app/dy/Index.js');
+let DyUser = require('../app/dy/User.js');
+let machine = require('../common/machine.js');
 
 let task = {
     run() {
@@ -22,6 +22,7 @@ let task = {
     },
 }
 
+System.setAccessibilityMode('fast');//快速模式
 tCommon.openApp();
 //开启线程  自动关闭弹窗
 Engines.executeScript("unit/dialogClose.js");
